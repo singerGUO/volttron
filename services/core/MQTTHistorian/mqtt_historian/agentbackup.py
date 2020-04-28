@@ -1,3 +1,4 @@
+
 import json
 from time import sleep
 import datetime
@@ -7,7 +8,7 @@ import time
 import gevent
 import pytz as pytz
 from paho.mqtt import client as mqtt
-import re
+
 
 
 from volttron.platform.agent.base_historian import BaseHistorian, add_timing_data_to_header
@@ -68,7 +69,7 @@ class MQTTHistorian(BaseHistorian):
         super(MQTTHistorian, self).__init__(**kwargs)
 
 
-    def on_connect(self,client, userdata, flags, rc):
+    def on_connect(self, client, userdata, flags, rc):
         print("Connected with result code " + str(rc) + " (" + self.connection_result_codes[rc] + ")")
 
         # Subscribing in on_connect() means that if we lose the connection and
@@ -114,50 +115,18 @@ class MQTTHistorian(BaseHistorian):
         to_send = []
         for x in to_publish_list:
             _log.debug("The dictionary is :{} ".format(x))
-
+            topic = x['topic']
+            _log.debug("The topic published previously:{} ".format(topic))
+            topic="devices/device1/messages/events/"
+            _log.debug("The topic published now:{} ".format(topic))
             # Construct payload from data in the publish item.
             # Available fields: 'value', 'headers', and 'meta'
-            
-            #Value of the data. Can be any type.
             payload = x['value']
-            #ID of record. All IDs in the list are unique. This is used for internal record tracking.
-            _id=x['_id']
-            #string
-            topic = x['topic']
-            #dict
-            headers = x['headers']
-
-            dictList= [headers,payload,_id]
-
-            #Some sources will omit this entirely
-            if 'meta' in x.keys():
-                meta= x['meta']
-                dictList.append(meta)
-
-            _log.debug("The topic published from message bus:{} ".format(topic))
-            
-            #Regular expression to format it for azure iot hub connection
-            pattern = re.compile(r'([a-zA-Z-0-9_.+-]*/)([a-zA-Z-0-9_.+-]*/)([a-zA-Z-0-9_.+-]*/)([a-zA-Z-0-9_.+-]*)',re.I)
-            
-            match = pattern.search(topic)
-            # volttron drop the prefix by default
-            iot_topics="devices/"
-
-            if match is not None:
-                _log.debug("Match is found for {} ".format(match.group(0)))
-                for i in range(1,4):
-                    iot_topics+=match.group(i)
-                iot_dict={'iot_hub_topics':iot_topics,'volttron_point_name':match.group(4)}
-                dictList.append(iot_dict)
-
-
-            else:
-                _log.debug("Invalid topic format")
-                continue
-               
-            _log.debug("The topic published now:{} ".format(iot_topics))
-
-            m = json.dumps(dictList)
+            start_ts = datetime.datetime.now(tz=pytz.utc)
+            m = json.dumps({
+                'message': 'Testing2',
+                'timestamp': str(start_ts)
+                })
             _log.debug("payload published is :{} ".format(m))
 
             to_send.append(m)
@@ -178,7 +147,7 @@ class MQTTHistorian(BaseHistorian):
         #                      protocol=self.mqtt_protocol)
         for m in to_send:
             try:
-                client.publish(topic=iot_topics,
+                client.publish(topic=topic,
                                        payload=m,qos=self.mqtt_qos)
 
                 self.report_all_handled()
